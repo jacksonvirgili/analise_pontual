@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -10,7 +9,7 @@ st.set_page_config(page_title="Dashboard Faturamento", layout="wide")
 # 1. FUNÇÃO DE PROCESSAMENTO COM CACHE (Evita lentidão)
 @st.cache_data
 def carregar_e_processar_dados():
-    # Lê o arquivo Excel direto da pasta do GitHub
+    # Lê o arquivo Excel direto da pasta
     df = pd.read_excel('Base Histórico Masculino.xlsx')
 
     # Função de quintil
@@ -20,9 +19,9 @@ def carregar_e_processar_dados():
     # Criando a nova coluna de preço
     df['Classificação Preço'] = df.groupby(['Material - Subgrupo', 'Mês/Ano Comercial'])['Preço Material'].transform(classificar_quintil)
 
-    # Agrupamento base (AQUI FOI ALTERADO PARA 'Venda Valor')
+    # Agrupamento base usando 'Venda Valor'
     df_resumo = df.groupby(['Mês/Ano Comercial', 'Material - Subgrupo', 'Classificação Preço', 'Próprio x Terceiro']).agg(
-        Venda_Valor=('Venda Valor', 'sum'), # <--- CORRIGIDO AQUI!
+        Venda_Valor=('Venda Valor', 'sum'),
         Venda_Pecas=('Venda Peças', 'sum'),
         Venda_Lucro_Bruto=('Venda Lucro Bruto', 'sum'),
         Estoque_Custo_Mes=('Estoque Custo Mês', 'sum'),
@@ -53,8 +52,8 @@ st.title("📊 Dashboard de Faturamento")
 # Menu Lateral (Filtros)
 st.sidebar.header("Opções do Gráfico")
 
-# Adicionando "Todos" no início da lista de subgrupos
-lista_subgrupos = ['Todos'] + df_resumo['Material - Subgrupo'].unique().tolist()
+# Adicionando a opção "Todos/Todas" no início das listas
+lista_subgrupos = ['Todos'] + sorted(df_resumo['Material - Subgrupo'].dropna().unique().tolist())
 lista_classificacoes = ['Todas', 'p1', 'p2', 'p3', 'p4', 'p5']
 
 subgrupo = st.sidebar.selectbox("Selecione o Subgrupo:", options=lista_subgrupos)
@@ -90,18 +89,46 @@ else:
     fig = go.Figure()
 
     # Adiciona as barras
-    fig.add_trace(go.Bar(x=df_prop['Mês/Ano Comercial'], y=df_prop['Venda_Valor'], name='Própria', marker_color='#3780bf'))
-    fig.add_trace(go.Bar(x=df_terc['Mês/Ano Comercial'], y=df_terc['Venda_Valor'], name='Terceiro', marker_color='#ff9933'))
+    fig.add_trace(go.Bar(
+        x=df_prop['Mês/Ano Comercial'], 
+        y=df_prop['Venda_Valor'], 
+        name='Própria', 
+        marker_color='#3780bf',
+        hovertemplate='Própria: R$ %{y:,.2f}'
+    ))
+    
+    fig.add_trace(go.Bar(
+        x=df_terc['Mês/Ano Comercial'], 
+        y=df_terc['Venda_Valor'], 
+        name='Terceiro', 
+        marker_color='#ff9933',
+        hovertemplate='Terceiro: R$ %{y:,.2f}'
+    ))
     
     # Adiciona a linha do total
-    fig.add_trace(go.Scatter(x=df_total['Mês/Ano Comercial'], y=df_total['Venda_Valor'], name='Total (R$)', mode='lines+markers', line=dict(color='#2ca02c', width=3)))
+    fig.add_trace(go.Scatter(
+        x=df_total['Mês/Ano Comercial'], 
+        y=df_total['Venda_Valor'], 
+        name='Total (R$)', 
+        mode='lines+markers', 
+        line=dict(color='#2ca02c', width=4),
+        marker=dict(size=8),
+        hovertemplate='Total: R$ %{y:,.2f}'
+    ))
 
     # Layout básico
     fig.update_layout(
         title=f"Faturamento | Subgrupo: {subgrupo} - Classificação: {classificacao.upper()}",
-        barmode='group',
+        barmode='group', # Barras lado a lado
         hovermode="x unified",
-        template='plotly_white'
+        template='plotly_white',
+        yaxis=dict(
+            title="Faturamento em R$",
+            tickprefix="R$ ",
+            separatethousands=True,
+            rangemode="tozero"
+        ),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
 
     # 4. RENDERIZA NO STREAMLIT
